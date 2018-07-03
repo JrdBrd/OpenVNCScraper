@@ -1,2 +1,2 @@
 # OpenVNCScraper
-Open-source and efficient worldwide VNC scraper (for research purposes ONLY)
+Open-source and efficient worldwide VNC scraper (for research purposes only)
