@@ -7,7 +7,7 @@ import time
 from io import StringIO
 from vncdotool import api
 
-#install vncdotool, but don't need to import. Also install zmap
+#install vncdotool and zmap
 
 #sudo zmap -B 10M -p 5900 -n 500000 -o results.txt
 #sudo zmap -B 10M -p 5900 -n 1000000000 -o results.txt    2.5 days/60 hours
