@@ -27,9 +27,7 @@ ipfile = "./results.txt"
 valid_ipfile = "./results/" + time.strftime("%Y%m%d-%H%M%S") + "_validips.txt"
 password_ipfile = "./results/" + time.strftime("%Y%m%d-%H%M%S") + "_passwordips.txt"
 
-#passed_amt = failed_amt = password_failed_amt = 0
 #If vnc has password, try easy pws like "123"
-
 
 def screencapture(startendpts):
     #startendpts in format: [start:end] eg: [0,52] [53, 106]...
@@ -130,7 +128,7 @@ if __name__ == '__main__':
             passed_ips.append(ip)
         
              
-#Will not go further until all of the process_amount have finished.
+#Will not go further until all of the multiprocesses have finished.
 print("Screencaptures have finished. Passed: " + str(passed_amt) + ". Password failed: " + str(password_failed_amt) + ". Failed: " + str(failed_amt) + ".")
 print("Writing passed IPs to file.")
 with open(valid_ipfile, "w") as myfile:
