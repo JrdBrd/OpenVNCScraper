@@ -6,6 +6,17 @@ from datetime import datetime
 import time
 from io import StringIO
 from vncdotool import api
+import argparse
+
+parser = argparse.ArgumentParser(description="Open/Unsafe VNC Scraper")
+parser.add_argument("-input", help="Input IP list file")
+parser.add_argument("-port", help="VNC connection port", type=int)
+parser.add_argument("-proc_count", help="Multithreaded process count", type=int)
+parser.add_argument("-connection_timeout", help="VNC connection timeout", type=int)
+parser.add_argument("-screenshot_timeout", help="Screenshot attempt timeout", type=int)
+parser.add_argument("--no_screenshots", help="Disable server screenshots", action="store_true")
+parser.add_argument("--no_passwords", help="Disable basic password checks", action="store_true")
+args = parser.parse_args()
 
 #install vncdotool, but don't need to import. Also install zmap
 
@@ -27,12 +38,22 @@ ipfile = "./pw_results.txt"
 valid_ipfile = "./results/" + time.strftime("%Y%m%d-%H%M%S") + "_validips.txt"
 password_ipfile = "./results/" + time.strftime("%Y%m%d-%H%M%S") + "_passwordips.txt"
 
-password_check = True
+password_check = not args.no_passwords
+skip_screencapture = args.no_screenshots
+if args.input:
+    ipfile = args.input
+if args.port:
+    vncport = str(args.port)
+if args.connection_timeout:
+    connection_timeout = args.connection_timeout
+if args.screenshot_timeout:
+    screenshot_timeout = args.screenshot_timeout
+if args.proc_count:
+    process_amount = args.proc_count
 
 if password_check:
     #Passwords to test every password-protected VNC server by, line-separated.
-    passwords =[line.strip() for line in open(password_file)]
-
+    passwords = [line.strip() for line in open(password_file)]
 
 def screencapture(startendpts):
     #startendpts in format: [start:end] eg: [0,52] [53, 106]...
@@ -41,12 +62,14 @@ def screencapture(startendpts):
     passed_ips = []
     password_failed_ips = []    
     passed_amt = failed_amt = password_failed_amt = 0
+    
     #Will NOT work in an IDLE with multiprocessing!
     for i in range(start, end):
         screenshot_starttime = datetime.now()
         vncserver = vncservers[i]
+        timestr = time.strftime("%Y%m%d-%H%M%S")
         #screenshot_filename = timestr + ".png"
-        screenshot_filename = str(i+1) + "_" + vncserver + ".png"
+        screenshot_filename = str(i+1) + "_" + vncserver + "_" + timestr + ".png"
         try:
             #Test connection
             client = api.connect(vncserver, password=None)
@@ -54,10 +77,12 @@ def screencapture(startendpts):
             client.connectionMade()
             print("Connection has established successfully to IP " + str(i + 1) + "/" + str(end) + ": " + vncserver)
             
-            #Now restart. This is required.
-            client = api.connect(vncserver, password=None)
-            client.timeout = screenshot_timeout
-            client.captureScreen(screenshot_path + screenshot_filename)
+            if not skip_screencapture:
+                #Now restart. This is required.
+                client = api.connect(vncserver, password=None)
+                client.timeout = screenshot_timeout
+                client.captureScreen(screenshot_path + screenshot_filename)
+            
             client.disconnect()
         except Exception as e:
             if "Timeout" in str(e):
@@ -82,7 +107,6 @@ def screencapture(startendpts):
                             break
                 if password_success:
                     print("IP " + str(i + 1) + "/" + str(end) + " (" + vncserver + ") has passed because it has a password present in your password list: " + correctpass)
-                    screenshot_filename += ("_" + correctpass)
                     try:
                         client = api.connect(vncserver, password=correctpass)
                         client.timeout = screenshot_timeout
@@ -111,9 +135,6 @@ def screencapture(startendpts):
             print(screenshot_filename + " screenshot taken in " + str(screenshot_duration.total_seconds()) + " seconds.")    
             passed_amt += 1  
             passed_ips.append(vncserver + ":" + vncport)
-            
-        timestr = time.strftime("%Y%m%d-%H%M%S")
-        screenshot_filename += ("_" + timestr) 
     
     resultsdict = {}
     resultsdict['passed_ips'] = passed_ips
