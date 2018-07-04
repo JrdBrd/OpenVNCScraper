@@ -45,9 +45,8 @@ def screencapture(startendpts):
     for i in range(start, end):
         screenshot_starttime = datetime.now()
         vncserver = vncservers[i]
-        timestr = time.strftime("%Y%m%d-%H%M%S")
         #screenshot_filename = timestr + ".png"
-        screenshot_filename = str(i+1) + "_" + vncserver + "_" + timestr + ".png"
+        screenshot_filename = str(i+1) + "_" + vncserver + ".png"
         try:
             #Test connection
             client = api.connect(vncserver, password=None)
@@ -83,6 +82,7 @@ def screencapture(startendpts):
                             break
                 if password_success:
                     print("IP " + str(i + 1) + "/" + str(end) + " (" + vncserver + ") has passed because it has a password present in your password list: " + correctpass)
+                    screenshot_filename += ("_" + correctpass)
                     try:
                         client = api.connect(vncserver, password=correctpass)
                         client.timeout = screenshot_timeout
@@ -111,6 +111,9 @@ def screencapture(startendpts):
             print(screenshot_filename + " screenshot taken in " + str(screenshot_duration.total_seconds()) + " seconds.")    
             passed_amt += 1  
             passed_ips.append(vncserver + ":" + vncport)
+            
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        screenshot_filename += ("_" + timestr) 
     
     resultsdict = {}
     resultsdict['passed_ips'] = passed_ips
